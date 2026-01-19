@@ -69,14 +69,23 @@ class AuthService:
         """
         Authenticate a user by email and password
         """
-        # Find user by email
-        result = await session.execute(select(User).where(User.email == email))
-        user = result.first()
+    
+        stmt = select(User).where(User.email == email)
+        result = await session.execute(stmt)
+        
+        user = result.scalar_one_or_none()
 
         if not user:
             return None
 
-        # Verify password
+        if not hasattr(user, 'password_hash') or user.password_hash is None:
+            await session.refresh(user)
+           
+            if not hasattr(user, 'password_hash') or user.password_hash is None:
+                print("CRITICAL: password_hash still missing after refresh!")
+                return None
+
+        # Password verify
         if not self.verify_password(password, user.password_hash):
             return None
 
