@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/fastapi"
+    }
+  ],
+  "functions": {
+    "api/fastapi.py": {
+      "runtime": "vercel-python@0.8.0"
+    }
+  }
+}

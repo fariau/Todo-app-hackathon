@@ -1,8 +1,10 @@
 import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
 
-// Get base URL and timeout from environment variables
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000', 10); // Default to 30 seconds
+// Use environment variable to determine API base URL
+// During transition, use NEXT_PUBLIC_API_BASE_URL from .env.local
+// For Vercel production, this should be empty for relative URLs
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const API_TIMEOUT = 30000; // 30 seconds
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
@@ -20,9 +22,12 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // Update the URL to include the /api prefix
-    if (!config.url?.startsWith('/api')) {
-      config.url = `/api${config.url}`;
+    // Update the URL to include the /api prefix for Vercel deployment
+    // Only add /api if we're using relative URLs or localhost (for development)
+    if (!BASE_URL.includes('://') || BASE_URL.includes('localhost') || BASE_URL.includes('127.0.0.1')) {
+      if (!config.url?.startsWith('/api')) {
+        config.url = `/api${config.url}`;
+      }
     }
     return config;
   },
@@ -39,7 +44,7 @@ apiClient.interceptors.response.use(
       // Token might be expired, remove it
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
-      // Redirect to login page (this would be handled by the calling component)
+      // Redirect to login page (handled by the calling component)
     }
     return Promise.reject(error);
   }

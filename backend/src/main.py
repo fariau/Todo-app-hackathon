@@ -51,6 +51,8 @@ origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     os.getenv("FRONTEND_URL", ""),  # From environment if set
+    "https://todo-app-hackathon-alpha.vercel.app",  # Deployed frontend URL
+    "https://*.vercel.app",  # Allow any Vercel subdomain
 ]
 
 # Filter out empty origin values
@@ -64,33 +66,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database and rate limiter on startup"""
-    # Initialize database
-    await init_db()
+# In serverless environments, startup events are not guaranteed to persist
+# We'll handle database initialization per request when needed
+async def ensure_db_initialized():
+    """Ensure database is initialized - called per request in serverless"""
+    try:
+        await init_db()
+        return True
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+        return False
 
-    # Initialize rate limiter with Redis (optional - skip if Redis not available)
-    if RATE_LIMITING_AVAILABLE:
-        try:
-            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-            redis = aioredis.from_url(redis_url, encoding="utf8", decode_responses=True)
-            await FastAPILimiter.init(redis)
-            print("Rate limiting initialized successfully")
-            app.state.rate_limiter_available = True
-        except Exception as e:
-            print(f"Warning: Could not connect to Redis for rate limiting: {e}")
-            print("Rate limiting will be disabled")
-            app.state.rate_limiter_available = False
-    else:
-        print("Rate limiting is not available (dependencies not installed)")
-        app.state.rate_limiter_available = False
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up resources on shutdown"""
-    if RATE_LIMITING_AVAILABLE and FastAPILimiter:
-        await FastAPILimiter.close()
 
 # Include API routers
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])

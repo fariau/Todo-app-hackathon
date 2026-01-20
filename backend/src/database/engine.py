@@ -15,13 +15,23 @@ if NEON_DB_URL:
     DATABASE_URL = NEON_DB_URL
 else:
     # Fallback to SQLite for development/testing when no Neon URL is provided
-    DATABASE_URL = "sqlite+aiosqlite:///./test.db"
+    DATABASE_URL = "sqlite+aiosqlite:///./todo_app.db"
 
 # Ensure the URL uses the asyncpg driver if it's a standard postgresql URL
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL.startswith("postgres://"):
+    # Handle standard postgres URL as well
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
-engine = create_async_engine(DATABASE_URL)
+# For serverless environments, we should avoid persistent connections
+# Set pool parameters appropriately for serverless
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,  # Verify connections before use
+    pool_recycle=300,    # Recycle connections every 5 minutes
+    echo=False           # Disable SQL logging in production
+)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 async def init_db():
